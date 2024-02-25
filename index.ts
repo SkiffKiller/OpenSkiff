@@ -71,7 +71,12 @@ createServer(async (socket) => {
                 socketData.saidhello = true;
                 break;
             case "EHLO":
-
+                socketData.saidhello = true;
+                socket.write("250-Hello\r\n");
+                console.log("250-Hello");
+                socket.write("250 STARTTLS\r\n");
+                console.log("250 STARTTLS");
+                break;
             case "NOOP":
                 socket.write("250 OK");
                 break;
