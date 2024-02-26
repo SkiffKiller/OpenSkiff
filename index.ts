@@ -1,6 +1,11 @@
-import {createServer, Socket} from "node:net";
+import {createServer} from "node:net";
 import {readFileSync, appendFile} from "node:fs";
 import {createSecureContext, TLSSocket} from "node:tls";
+
+const secureContext = createSecureContext({
+    key: readFileSync("cert/server.key", "utf8").toString(),
+    cert: readFileSync("cert/server.pem", "utf8").toString(),
+});
 
 interface SocketData {
     from: string;
@@ -9,23 +14,10 @@ interface SocketData {
     timestamp: number;
     saidhello: boolean;
     dataToggle: boolean;
+    isSecure: boolean;
 }
 
-function initiateTLS(socket: Socket) {
-    // Upgrade the connection to TLS
-    const secureContext = createSecureContext({
-        key: readFileSync("certs/server.key", "utf8").toString(),
-        cert: readFileSync("certs/server.pem", "utf8").toString(),
-    });
-    const securedSocket = new TLSSocket(socket, { secureContext });
-    securedSocket.on("secure", () => {
-        console.log("Connection secured with TLS");
-    });
-    securedSocket.pipe(socket);
-    socket.pipe(securedSocket);
-}
-
-createServer(async (socket) => {
+createServer(async (socket: any) => {
     console.log(`Client connected: ${socket.remoteAddress}`);
     socket.write(`220 oskiff.com OpenSkiff SMTP Server\r\n`);
     console.log(`220 oskiff.com OpenSkiff SMTP Server`);
@@ -36,6 +28,7 @@ createServer(async (socket) => {
         timestamp: Date.now(),
         saidhello: false,
         dataToggle: false,
+        isSecure: false
     };
     socket.on("data", (data) => {
         console.log(`[${socket.remoteAddress}]: ${data.toString()}`);
@@ -82,7 +75,9 @@ createServer(async (socket) => {
                 break;
             case "STARTTLS":
                 socket.write("220 Ready to start TLS\r\n");
-                initiateTLS(socket);
+                socket = new TLSSocket(socket, { secureContext });
+                socketData.isSecure = true
+                socket.on("secure", () => console.log("Connection secured with TLS"));
                 break;
             case "MAIL":
                 socketData.to.push(data.toString().trim().split(":")[1]);
